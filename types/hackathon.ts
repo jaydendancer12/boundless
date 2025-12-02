@@ -33,6 +33,38 @@ export interface Participant {
   followers?: number;
   following?: number;
   hasSubmitted?: boolean;
+  teamId?: string | null;
+  teamName?: string | null;
+  isIndividual?: boolean;
+}
+
+export interface ParticipantGroup {
+  teamId: string | null;
+  teamName: string | null;
+  isIndividual: boolean;
+  members: Participant[];
+  memberCount: number;
+  hasSubmission: boolean;
+  teamCreatedAt: string;
+}
+
+export interface ParticipantsData {
+  groups?: ParticipantGroup[];
+  participants?: Participant[];
+  grouping: 'team' | 'flat';
+  participantType: string;
+  hasMore: boolean;
+  total: number;
+  currentPage: number;
+  totalPages: number;
+}
+
+export interface ParticipantsResponse {
+  success: boolean;
+  data: ParticipantsData;
+  message: string;
+  timestamp?: string;
+  path?: string;
 }
 
 export interface CommentUser {
@@ -173,7 +205,14 @@ export interface Hackathon {
   endDate: string;
   organizer: string;
   featured?: boolean;
-  resources?: string[];
+  resources?: {
+    resources: Array<{
+      link?: string;
+      description?: string;
+      fileUrl?: string;
+      fileName?: string;
+    }>;
+  };
   participantType?: ParticipantType;
   tabVisibility?: Pick<HackathonTabVisibility, 'joinATeamTab'>;
   participation?: HackathonParticipationSettings;

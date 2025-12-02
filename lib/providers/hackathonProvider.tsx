@@ -42,7 +42,7 @@ interface Prize {
 interface ResourceItem {
   id: number;
   title: string;
-  type: 'link';
+  type: 'link' | 'file';
   size: string;
   url: string;
   uploadDate: string;
@@ -204,10 +204,30 @@ export function HackathonDataProvider({
     try {
       const response = await getHackathonParticipants(slug, { limit: 50 });
       if (response.success && response.data) {
-        setParticipants(response.data.participants);
+        const data = response.data;
+
+        let flattenedParticipants: Participant[] = [];
+
+        // Handle both grouped and flat responses
+        if (data.grouping === 'team' && data.groups) {
+          // Flatten the groups
+          flattenedParticipants = data.groups.flatMap(group =>
+            group.members.map(member => ({
+              ...member,
+              teamId: group.teamId,
+              teamName: group.teamName,
+              isIndividual: group.isIndividual,
+            }))
+          );
+        } else if (data.participants) {
+          // Flat response
+          flattenedParticipants = data.participants;
+        }
+
+        setParticipants(flattenedParticipants);
       }
     } catch {
-      /* ignore */
+      setParticipants([]);
     }
   }, []);
 
@@ -385,15 +405,15 @@ export function HackathonDataProvider({
       ]
     : [];
 
-  const mockResources: ResourceItem[] = currentHackathon?.resources
-    ? currentHackathon.resources.map((resource, index) => ({
+  const mockResources: ResourceItem[] = currentHackathon?.resources?.resources
+    ? currentHackathon.resources.resources.map((resource, index) => ({
         id: index + 1,
-        title: `Resource ${index + 1}`,
-        type: 'link',
+        title: resource.description || `Resource ${index + 1}`,
+        type: resource.fileUrl ? 'file' : 'link',
         size: 'N/A',
-        url: resource,
+        url: resource.fileUrl || resource.link || '',
         uploadDate: new Date().toISOString(),
-        description: 'Additional resource for participants',
+        description: resource.description || '',
       }))
     : [];
 

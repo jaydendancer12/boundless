@@ -1,4 +1,4 @@
-import api, { type RequestConfig } from './api';
+import api from './api';
 import { ApiResponse, ErrorResponse, PaginatedResponse } from './types';
 import { Discussion } from '@/types/hackathon';
 
@@ -141,12 +141,25 @@ export interface HackathonCollaboration {
   sponsorsPartners?: SponsorPartner[];
 }
 
+// Resources Tab Types
+export interface HackathonResource {
+  link?: string;
+  description?: string;
+  fileUrl?: string;
+  fileName?: string;
+}
+
+export interface HackathonResources {
+  resources: HackathonResource[];
+}
+
 // Complete Hackathon Data Structure
 export interface HackathonData {
   information: HackathonInformation;
   timeline: HackathonTimeline;
   participation: HackathonParticipation;
   rewards: HackathonRewards;
+  resources?: HackathonResources;
   judging: HackathonJudging;
   collaboration: HackathonCollaboration;
 }
@@ -660,6 +673,19 @@ export interface GetJudgingSubmissionsResponse
   message: string;
 }
 
+export interface LeaveHackathonResponse
+  extends ApiResponse<{
+    teamCleanedUp: boolean;
+    teamId?: string;
+  }> {
+  success: true;
+  data: {
+    teamCleanedUp: boolean;
+    teamId?: string;
+  };
+  message: string;
+}
+
 export interface GetSubmissionScoresResponse
   extends ApiResponse<SubmissionScoresResponse> {
   success: true;
@@ -754,8 +780,9 @@ export interface PublicHackathon {
   startDate: string;
   endDate: string;
   organizer: string;
+  organizerLogo?: string;
   featured: boolean;
-  resources: string[];
+  resources?: string[] | HackathonResources; // Support both old array format and new nested format
   venue?: {
     type: 'virtual' | 'physical';
     country?: string;
@@ -832,6 +859,7 @@ interface FlatHackathonData {
   discord?: string;
   socialLinks?: string[];
   sponsorsPartners?: SponsorPartner[];
+  resources?: HackathonResources;
   // Nested structure (if already transformed)
   information?: HackathonInformation;
   timeline?: HackathonTimeline;
@@ -857,12 +885,21 @@ const transformHackathonResponse = (
     'participation' in flatData &&
     flatData.participation
   ) {
-    return flatData as Hackathon;
+    // Ensure resources field exists even if not provided
+    const hackathon = flatData as Hackathon;
+    if (!hackathon.resources) {
+      hackathon.resources = { resources: [] };
+    }
+    return hackathon;
   }
 
   // Type guard: if it's already a Hackathon, return it
   if ('information' in flatData) {
-    return flatData as Hackathon;
+    const hackathon = flatData as Hackathon;
+    if (!hackathon.resources) {
+      hackathon.resources = { resources: [] };
+    }
+    return hackathon;
   }
 
   // Now we know it's FlatHackathonData, transform from flat to nested structure
@@ -910,6 +947,7 @@ const transformHackathonResponse = (
     rewards: {
       prizeTiers: flat.prizeTiers || [],
     },
+    resources: flat.resources || { resources: [] },
     judging: {
       criteria: flat.criteria || [],
     },
@@ -922,6 +960,23 @@ const transformHackathonResponse = (
     },
   };
 };
+
+export interface AcceptTeamInvitationRequest {
+  token: string;
+}
+
+export interface AcceptTeamInvitationResponse
+  extends ApiResponse<{
+    message: string;
+    teamName: string;
+  }> {
+  success: true;
+  data: {
+    message: string;
+    teamName: string;
+  };
+  message: string;
+}
 
 /**
  * Transform flat API response to nested HackathonDraft structure
@@ -1062,6 +1117,26 @@ export const publishHackathon = async (
     ...res.data,
     data: transformedData,
   };
+};
+
+// Accpet invitition function
+export const acceptTeamInvitation = async (
+  hackathonSlugOrId: string,
+  data: AcceptTeamInvitationRequest,
+  organizationId?: string
+): Promise<AcceptTeamInvitationResponse> => {
+  let url: string;
+
+  // If organizationId is provided, use authenticated endpoint
+  if (organizationId) {
+    url = `/organizations/${organizationId}/hackathons/${hackathonSlugOrId}/team/accept`;
+  } else {
+    // Otherwise, use public slug-based endpoint
+    url = `hackathons/${hackathonSlugOrId}/team/accept`;
+  }
+
+  const res = await api.post(url, data);
+  return res.data;
 };
 
 /**
@@ -1454,6 +1529,28 @@ export const registerForHackathon = async (
 };
 
 /**
+ * Leave a hackathon
+ * Supports both slug-based (public) and organization/hackathon ID (authenticated) endpoints
+ */
+export const leaveHackathon = async (
+  hackathonSlugOrId: string,
+  organizationId?: string
+): Promise<LeaveHackathonResponse> => {
+  let url: string;
+
+  // If organizationId is provided, use authenticated endpoint
+  if (organizationId) {
+    url = `/organizations/${organizationId}/hackathons/${hackathonSlugOrId}/leave`;
+  } else {
+    // Otherwise, use public slug-based endpoint
+    url = `/hackathons/${hackathonSlugOrId}/leave`;
+  }
+
+  const res = await api.delete(url);
+  return res.data;
+};
+
+/**
  * Check registration status for a hackathon
  * Returns participant data if registered, null otherwise
  */
@@ -1645,9 +1742,7 @@ export const getPublicHackathonsList = async (
   const queryString = params.toString();
   const url = `/hackathons${queryString ? `?${queryString}` : ''}`;
 
-  // Use skipAuthRefresh to ensure no auth token is sent for public endpoint
-  const config: RequestConfig = { headers: { 'skip-auth-refresh': 'true' } };
-  const res = await api.get<PublicHackathonsListResponse>(url, config);
+  const res = await api.get<PublicHackathonsListResponse>(url);
 
   return res.data;
 };
@@ -1659,7 +1754,11 @@ export const getPublicHackathonsList = async (
 export const transformPublicHackathonToHackathon = (
   publicHackathon: PublicHackathon,
   organizationName?: string
-): Hackathon & { _organizationName?: string; featured?: boolean } => {
+): Hackathon & {
+  _organizationName?: string;
+  featured?: boolean;
+  organizerLogo?: string;
+} => {
   // Parse totalPrizePool string to number (format: "50,000.00")
   const prizePoolAmount =
     parseFloat(publicHackathon.totalPrizePool.replace(/,/g, '')) || 0;
@@ -1706,11 +1805,31 @@ export const transformPublicHackathonToHackathon = (
   const categories: HackathonCategory[] =
     categoriesArray.length > 0 ? categoriesArray : [HackathonCategory.OTHER];
 
-  // Extract resources (telegram, discord, etc.) from resources array
-  const telegram = publicHackathon.resources?.find(
+  // Extract resources (telegram, discord, etc.) from resources
+  // Handle both old format (array of strings) and new format (nested object)
+  let resourcesArray: string[] = [];
+  if (publicHackathon.resources) {
+    if (Array.isArray(publicHackathon.resources)) {
+      // Old format: array of strings
+      resourcesArray = publicHackathon.resources;
+    } else if (
+      typeof publicHackathon.resources === 'object' &&
+      'resources' in publicHackathon.resources &&
+      Array.isArray(publicHackathon.resources.resources)
+    ) {
+      // New format: nested object with resources array
+      resourcesArray = publicHackathon.resources.resources
+        .map(
+          (r: { link?: string; fileUrl?: string }) => r.link || r.fileUrl || ''
+        )
+        .filter((url: string) => url !== '');
+    }
+  }
+
+  const telegram = resourcesArray.find(
     r => r.includes('t.me') || r.includes('telegram')
   );
-  const discord = publicHackathon.resources?.find(r => r.includes('discord'));
+  const discord = resourcesArray.find(r => r.includes('discord'));
 
   return {
     _id: publicHackathon.id,
@@ -1768,6 +1887,34 @@ export const transformPublicHackathonToHackathon = (
             ]
           : [],
     },
+    resources: (() => {
+      if (!publicHackathon.resources) {
+        return { resources: [] };
+      }
+
+      // New format: nested object
+      if (
+        typeof publicHackathon.resources === 'object' &&
+        'resources' in publicHackathon.resources &&
+        Array.isArray(publicHackathon.resources.resources)
+      ) {
+        return publicHackathon.resources as HackathonResources;
+      }
+
+      // Old format: array of strings
+      if (Array.isArray(publicHackathon.resources)) {
+        return {
+          resources: publicHackathon.resources.map((resource: string) => ({
+            link: resource,
+            description: '',
+            fileUrl: undefined,
+            fileName: undefined,
+          })),
+        };
+      }
+
+      return { resources: [] };
+    })(),
     judging: {
       criteria: [],
     },
@@ -1775,16 +1922,18 @@ export const transformPublicHackathonToHackathon = (
       contactEmail: '',
       telegram,
       discord,
-      socialLinks: publicHackathon.resources || [],
+      socialLinks: [],
       sponsorsPartners: [],
     },
     _organizationName: organizationName || publicHackathon.organizer,
     featured: publicHackathon.featured,
     participants: publicHackathon.participants, // Add participants count for card display
+    organizerLogo: publicHackathon.organizerLogo,
   } as Hackathon & {
     _organizationName?: string;
     featured?: boolean;
     participants?: number;
+    organizerLogo?: string;
   };
 };
 
