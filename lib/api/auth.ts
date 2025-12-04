@@ -1,6 +1,6 @@
 import api from './api';
 import { GetMeResponse, ApiResponse } from '@/lib/api/types';
-import { useAuthStore } from '@/lib/stores/auth-store';
+import { authClient } from '@/lib/auth-client';
 
 /**
  * Get current user profile from backend API
@@ -43,23 +43,17 @@ export const getUserProfileByUsername = async (
  * Enhanced auth utilities
  */
 export const refreshUserData = async (): Promise<void> => {
-  const authStore = useAuthStore.getState();
-  await authStore.refreshUser();
+  try {
+    await getMe();
+  } catch (error) {
+    throw error;
+  }
 };
 
 export const checkAuthStatus = async (): Promise<boolean> => {
   try {
-    const authStore = useAuthStore.getState();
-    const { isAuthenticated } = authStore;
-
-    if (!isAuthenticated) {
-      return false;
-    }
-
-    // Try to refresh user data to verify session is still valid
-    // Better Auth handles session validation via cookies
-    await authStore.refreshUser();
-    return true;
+    const session = await authClient.getSession();
+    return !!(session && 'user' in session && session.user);
   } catch {
     return false;
   }

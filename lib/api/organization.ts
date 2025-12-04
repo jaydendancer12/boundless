@@ -61,8 +61,7 @@ export interface GetOrganizationResponse extends ApiResponse<Organization> {
   message: string;
 }
 
-export interface GetOrganizationsResponse
-  extends PaginatedResponse<Organization> {
+export interface GetOrganizationsResponse extends PaginatedResponse<Organization> {
   success: true;
   data: Organization[];
   pagination: {
@@ -167,12 +166,11 @@ export interface RawOrganizationPermissions {
   };
 }
 
-export interface GetPermissionsResponse
-  extends ApiResponse<{
-    permissions: RawOrganizationPermissions;
-    isCustom: boolean;
-    canEdit: boolean;
-  }> {
+export interface GetPermissionsResponse extends ApiResponse<{
+  permissions: RawOrganizationPermissions;
+  isCustom: boolean;
+  canEdit: boolean;
+}> {
   success: true;
   data: {
     permissions: RawOrganizationPermissions;

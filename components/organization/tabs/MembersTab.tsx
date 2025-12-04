@@ -56,7 +56,6 @@ export default function MembersTab({ onSave }: MembersTabProps) {
     const checkUserIsOwner = async () => {
       const checkIsOwner = await isOwner(activeOrgId || undefined);
       setUserIsOwner(checkIsOwner);
-      console.log('userIsOwner', checkIsOwner);
     };
     checkUserIsOwner();
   }, [activeOrgId]);
@@ -91,8 +90,7 @@ export default function MembersTab({ onSave }: MembersTabProps) {
       try {
         const data = await listBetterAuthInvitations(activeOrg.betterAuthOrgId);
         setInvitations(data || []);
-      } catch (error) {
-        console.error('Error fetching invitations:', error);
+      } catch {
         toast.error('Failed to load invitations');
       } finally {
         setLoadingInvitations(false);
@@ -115,9 +113,7 @@ export default function MembersTab({ onSave }: MembersTabProps) {
             activeOrg.betterAuthOrgId
           );
           setInvitations(data || []);
-        } catch (error) {
-          console.error('Error refreshing invitations:', error);
-        }
+        } catch {}
       }
     }
   };
@@ -178,7 +174,6 @@ export default function MembersTab({ onSave }: MembersTabProps) {
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       toast.error(`Failed to remove member: ${msg}`);
-      console.error('Error removing member:', error);
     }
   };
 
@@ -205,7 +200,6 @@ export default function MembersTab({ onSave }: MembersTabProps) {
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       toast.error(`Failed to cancel invitation: ${msg}`);
-      console.error('Error canceling invitation:', error);
     } finally {
       setCancelingInvitation(null);
     }

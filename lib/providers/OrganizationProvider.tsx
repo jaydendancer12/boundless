@@ -1070,13 +1070,10 @@ export function OrganizationProvider({
         const currentUserMember = data.members?.find(
           (member: { userId: string; role: string }) => member.userId === userId
         );
-        const ff = currentUserMember?.role === 'owner';
-        console.log('currentUserMember', ff);
 
         // Check if user's role is owner
         return currentUserMember?.role === 'owner';
-      } catch (error) {
-        console.error('Error checking owner status:', error);
+      } catch {
         // Fallback to local state
         const org = getOrganizationById(targetOrgId);
         return org?.role === 'owner';
