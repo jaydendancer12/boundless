@@ -9,7 +9,7 @@ import {
 
 const getAuthBaseURL = () => {
   const apiUrl =
-    process.env.NEXT_PUBLIC_API_URL || 'https://staging-api.boundlessfi.xyz';
+    process.env.NEXT_PUBLIC_API_URL || 'https://staging.api.boundlessfi.xyz';
   const baseURL = apiUrl.replace(/\/$/, '').replace(/\/api$/i, '');
   return `${baseURL}/api/auth`;
 };
