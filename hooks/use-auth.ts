@@ -166,10 +166,12 @@ export function useAuthStatus() {
 
 // Hook for auth actions
 export function useAuthActions() {
+  const router = useRouter();
   const logout = useCallback(async () => {
     try {
       console.log('Signing out user');
       await authClient.signOut();
+      router.push('/');
     } catch (error) {
       console.error('Failed to sign out:', error);
       throw error;
