@@ -6,6 +6,7 @@ import {
   oneTapClient,
   organizationClient,
 } from 'better-auth/client/plugins';
+import { nextCookiesRequest } from './next-cookies-request';
 
 const getAuthBaseURL = () => {
   const apiUrl =
@@ -17,6 +18,7 @@ const getAuthBaseURL = () => {
 export const authClient = createAuthClient({
   baseURL: getAuthBaseURL(),
   plugins: [
+    nextCookiesRequest,
     inferAdditionalFields({
       user: {
         profile: { type: 'json', required: false },
