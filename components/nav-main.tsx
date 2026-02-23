@@ -23,7 +23,7 @@ export function NavMain({
     title: string;
     url: string;
     icon?: Icon;
-    badge?: string;
+    badge?: string | number;
     badgeVariant?: 'default' | 'destructive' | 'outline';
   }[];
   label?: string;
@@ -42,6 +42,11 @@ export function NavMain({
           {items.map(item => {
             const isActive =
               pathname === item.url || pathname?.startsWith(`${item.url}/`);
+
+            const hasBadge =
+              item.badge !== undefined &&
+              item.badge !== null &&
+              Number(item.badge) > 0;
 
             return (
               <SidebarMenuItem key={item.title}>
@@ -65,7 +70,7 @@ export function NavMain({
                       />
                     )}
                     <span className='flex-1'>{item.title}</span>
-                    {item.badge && (
+                    {hasBadge && (
                       <Badge
                         variant={item.badgeVariant || 'default'}
                         className='ml-auto h-5 min-w-5 rounded-full px-1.5 text-xs'
