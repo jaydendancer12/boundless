@@ -4,6 +4,7 @@ import { getNotifications } from '@/lib/api/notifications';
 import { Notification } from '@/types/notifications';
 
 interface UseNotificationsOptions {
+  userId?: string;
   page?: number;
   limit?: number;
   autoFetch?: boolean;
@@ -28,14 +29,16 @@ export interface UseNotificationsReturn {
 export function useNotifications(
   input?: string | UseNotificationsOptions
 ): UseNotificationsReturn {
-  // Handle overloaded arguments
-  const userId = typeof input === 'string' ? input : undefined;
+  const userId =
+    typeof input === 'string' ? input : (input?.userId as string | undefined);
   const options = typeof input === 'object' ? input : {};
   const { page: initialPage = 1, limit = 10, autoFetch = true } = options;
+  const shouldConnectSocket = Boolean(userId);
 
   const { socket, isConnected } = useSocket({
     namespace: '/notifications',
     userId,
+    autoConnect: shouldConnectSocket,
   });
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -45,7 +48,6 @@ export function useNotifications(
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(initialPage);
 
-  // Fetch notifications with pagination
   const fetchNotifications = useCallback(async () => {
     try {
       setLoading(true);
@@ -53,7 +55,6 @@ export function useNotifications(
       const response = await getNotifications(currentPage, limit);
 
       if (response && Array.isArray(response.notifications)) {
-        // Sort notifications by createdAt desc to ensure correct order
         const sorted = [...response.notifications].sort(
           (a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -71,27 +72,33 @@ export function useNotifications(
     }
   }, [currentPage, limit]);
 
-  // Initial fetch
   useEffect(() => {
     if (autoFetch) {
       fetchNotifications();
     }
   }, [fetchNotifications, autoFetch]);
 
-  // Request initial unread count when socket connects
+  useEffect(() => {
+    if (!userId) {
+      setNotifications([]);
+      setUnreadCount(0);
+      setTotal(0);
+      setError(null);
+      setLoading(false);
+    }
+  }, [userId]);
+
   useEffect(() => {
     if (socket && isConnected) {
       socket.emit('get-unread-count');
     }
   }, [socket, isConnected]);
 
-  // Set up event listeners
   useEffect(() => {
     if (!socket) {
       return;
     }
 
-    // Listen for new notifications
     const handleNotification = (notification: any) => {
       const normalizedNotification: Notification = {
         ...notification,
@@ -103,15 +110,11 @@ export function useNotifications(
       };
 
       setNotifications(prev => {
-        // Avoid duplicates
         const exists = prev.some(n => n.id === normalizedNotification.id);
         if (exists) {
           return prev;
         }
 
-        // Add new notification and resort
-        // Note: For pagination, real-time updates might be tricky.
-        // We typically add it to the top if we are on page 1.
         if (currentPage === 1) {
           return [normalizedNotification, ...prev];
         }
@@ -120,12 +123,10 @@ export function useNotifications(
       setUnreadCount(prev => prev + 1);
     };
 
-    // Listen for unread count updates
     const handleUnreadCount = (data: { count: number }) => {
       setUnreadCount(data.count);
     };
 
-    // Listen for notification updates
     const handleNotificationUpdated = (data: any) => {
       const id = data.notificationId || data.id || data._id;
       if (id) {
@@ -135,7 +136,6 @@ export function useNotifications(
       }
     };
 
-    // Listen for all notifications read
     const handleAllRead = () => {
       setNotifications(prev => prev.map(notif => ({ ...notif, read: true })));
       setUnreadCount(0);
@@ -161,10 +161,20 @@ export function useNotifications(
   }, [socket, currentPage]);
 
   const markAsRead = (notificationId: string) => {
-    setNotifications(prev =>
-      prev.map(n => (n.id === notificationId ? { ...n, read: true } : n))
+    const didChangeUnread = notifications.some(
+      notification => notification.id === notificationId && !notification.read
     );
-    setUnreadCount(prev => Math.max(0, prev - 1));
+    setNotifications(prev =>
+      prev.map(n => {
+        if (n.id === notificationId) {
+          return { ...n, read: true };
+        }
+        return n;
+      })
+    );
+    if (didChangeUnread) {
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    }
 
     if (socket && isConnected) {
       socket.emit('mark-read', { notificationId });
@@ -172,11 +182,24 @@ export function useNotifications(
   };
 
   const markNotificationAsRead = async (ids: string[]) => {
-    // Optimistic
-    setNotifications(prev =>
-      prev.map(n => (ids.includes(n.id) ? { ...n, read: true } : n))
+    const unreadNotificationIds = new Set(
+      notifications.filter(notification => !notification.read).map(n => n.id)
     );
-    // Note: unread count update is approximate here, ideally we wait for socket update
+    const changedUnreadCount = ids.filter(id =>
+      unreadNotificationIds.has(id)
+    ).length;
+
+    setNotifications(prev =>
+      prev.map(n => {
+        if (ids.includes(n.id)) {
+          return { ...n, read: true };
+        }
+        return n;
+      })
+    );
+    if (changedUnreadCount > 0) {
+      setUnreadCount(prev => Math.max(0, prev - changedUnreadCount));
+    }
 
     if (socket && isConnected) {
       ids.forEach(id => socket.emit('mark-read', { notificationId: id }));

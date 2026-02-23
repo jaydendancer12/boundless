@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/sidebar';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useNotificationCenter } from '@/components/providers/notification-provider';
 
 const navigationData = {
   main: [
@@ -88,7 +89,6 @@ const navigationData = {
       title: 'Notifications',
       url: '/me/notifications',
       icon: IconBell,
-      badge: '5',
     },
   ],
 };
@@ -101,6 +101,13 @@ export function AppSidebar({
   user,
   ...props
 }: { user: userData } & React.ComponentProps<typeof Sidebar>) {
+  const { unreadCount } = useNotificationCenter();
+  const accountItems = navigationData.account.map(item =>
+    item.title === 'Notifications'
+      ? { ...item, badge: unreadCount > 0 ? String(unreadCount) : undefined }
+      : item
+  );
+
   return (
     <Sidebar collapsible='icon' {...props}>
       <div className='pointer-events-none absolute inset-0 overflow-hidden'>
@@ -115,7 +122,6 @@ export function AppSidebar({
         </div>
       </div>
 
-      {/* Header with Logo */}
       <SidebarHeader className='border-sidebar-border/50 border-b'>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -140,15 +146,13 @@ export function AppSidebar({
         </SidebarMenu>
       </SidebarHeader>
 
-      {/* Main Content */}
       <SidebarContent className='gap-4 px-2 py-4'>
         <NavMain items={navigationData.main} />
         <NavMain items={navigationData.projects} label='Projects' />
         <NavMain items={navigationData.crowdfunding} label='Crowdfunding' />
         <NavMain items={navigationData.hackathons} label='Hackathons' />
-        <NavMain items={navigationData.account} label='Account' />
+        <NavMain items={accountItems} label='Account' />
       </SidebarContent>
-      {/* Footer with User */}
       <SidebarFooter className='border-sidebar-border/50 border-t p-2 backdrop-blur-sm'>
         <NavUser user={user} />
       </SidebarFooter>

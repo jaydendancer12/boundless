@@ -7,9 +7,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { NotificationDropdown } from './NotificationDropdown';
-import { useNotifications } from '@/hooks/useNotifications';
-import { authClient } from '@/lib/auth-client';
 import { cn } from '@/lib/utils';
+import { useNotificationCenter } from '@/components/providers/notification-provider';
+import { authClient } from '@/lib/auth-client';
 
 interface NotificationBellProps {
   className?: string;
@@ -18,22 +18,28 @@ interface NotificationBellProps {
 
 export const NotificationBell = ({ className }: NotificationBellProps) => {
   const [isOpen, setIsOpen] = useState(false);
-
-  // Get userId from auth session
   const { data: session } = authClient.useSession();
   const userId = session?.user?.id;
 
-  // Use WebSocket-based notifications hook (only connect if userId is available)
-  const { notifications, unreadCount, isConnected, loading, markAllAsRead } =
-    useNotifications(userId || undefined);
+  const {
+    notifications,
+    unreadCount,
+    isConnected,
+    loading,
+    markAllAsRead,
+    markNotificationAsRead,
+  } = useNotificationCenter();
 
-  // Wrapper for markAllAsRead that uses WebSocket
   const handleMarkAllAsRead = async () => {
     markAllAsRead();
   };
 
-  const handleNotificationClick = () => {
-    // Notification click is handled in NotificationDropdown
+  const handleNotificationClick = (
+    notification: (typeof notifications)[number]
+  ) => {
+    if (!notification.read) {
+      markNotificationAsRead([notification.id]).catch(() => {});
+    }
   };
 
   return (
