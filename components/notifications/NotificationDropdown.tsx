@@ -10,7 +10,6 @@ import {
 import { NotificationItem } from './NotificationItem';
 import { Notification } from '@/types/notifications';
 import { Skeleton } from '@/components/ui/skeleton';
-import { markAsRead } from '@/lib/api/notifications';
 import { toast } from 'sonner';
 
 interface NotificationDropdownProps {
@@ -82,45 +81,24 @@ export const NotificationDropdown = ({
       onNotificationClick(notification);
     }
 
-    // Auto-mark as read on click
-    if (!notification.read) {
-      try {
-        await markAsRead({ ids: [notification.id] });
-      } catch {
-        // Silently handle error - user feedback already provided
-      }
-    }
-
-    // Navigate to relevant page based on priority
-    // Organization notifications
     if (notification.data.organizationId) {
       router.push(`/organizations/${notification.data.organizationId}`);
-    }
-    // Hackathon notifications (prefer slug over ID)
-    else if (notification.data.hackathonId) {
+    } else if (notification.data.hackathonId) {
       if (notification.data.hackathonSlug) {
         router.push(`/hackathons/${notification.data.hackathonSlug}`);
       } else {
         router.push(`/hackathons/${notification.data.hackathonId}`);
       }
-    }
-    // Team invitation notifications (navigate to project if available)
-    else if (
+    } else if (
       notification.data.teamInvitationId &&
       notification.data.projectId
     ) {
       router.push(`/projects/${notification.data.projectId}`);
-    }
-    // Project notifications
-    else if (notification.data.projectId) {
+    } else if (notification.data.projectId) {
       router.push(`/projects/${notification.data.projectId}`);
-    }
-    // Comment notifications
-    else if (notification.data.commentId) {
+    } else if (notification.data.commentId) {
       router.push(`/comments/${notification.data.commentId}`);
-    }
-    // Milestone notifications
-    else if (notification.data.milestoneId) {
+    } else if (notification.data.milestoneId) {
       router.push(`/milestones/${notification.data.milestoneId}`);
     }
 
@@ -219,7 +197,7 @@ export const NotificationDropdown = ({
                 </button>
               )}
               <Link
-                href='/notifications'
+                href='/me/notifications'
                 className='text-primary hover:text-primary/80 ml-auto text-xs font-medium transition-colors'
                 onClick={onClose}
               >

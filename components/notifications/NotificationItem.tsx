@@ -5,12 +5,14 @@ import Link from 'next/link';
 import { Notification } from '@/types/notifications';
 import { getNotificationIcon } from './NotificationIcon';
 import { cn } from '@/lib/utils';
+import { AnimatePresence, motion } from 'framer-motion';
 
 interface NotificationItemProps {
   notification: Notification;
   onMarkAsRead?: () => void;
   showUnreadIndicator?: boolean;
   className?: string;
+  disableNavigation?: boolean;
 }
 
 export const NotificationItem = ({
@@ -18,16 +20,15 @@ export const NotificationItem = ({
   onMarkAsRead,
   showUnreadIndicator = true,
   className,
+  disableNavigation = false,
 }: NotificationItemProps) => {
   const Icon = getNotificationIcon(notification.type);
 
   const getNotificationLink = (): string => {
-    // Organization notifications
     if (notification.data.organizationId) {
       return `/organizations/${notification.data.organizationId}`;
     }
 
-    // Hackathon notifications (prefer slug over ID)
     if (notification.data.hackathonId) {
       if (notification.data.hackathonSlug) {
         return `/hackathons/${notification.data.hackathonSlug}`;
@@ -35,22 +36,18 @@ export const NotificationItem = ({
       return `/hackathons/${notification.data.hackathonId}`;
     }
 
-    // Team invitation notifications (navigate to project if available)
     if (notification.data.teamInvitationId && notification.data.projectId) {
       return `/projects/${notification.data.projectId}`;
     }
 
-    // Project notifications
     if (notification.data.projectId) {
       return `/projects/${notification.data.projectId}`;
     }
 
-    // Comment notifications
     if (notification.data.commentId) {
       return `/comments/${notification.data.commentId}`;
     }
 
-    // Milestone notifications
     if (notification.data.milestoneId) {
       return `/milestones/${notification.data.milestoneId}`;
     }
@@ -59,7 +56,7 @@ export const NotificationItem = ({
   };
 
   const handleClick = () => {
-    if (!notification.read && onMarkAsRead) {
+    if (onMarkAsRead) {
       onMarkAsRead();
     }
   };
@@ -68,7 +65,11 @@ export const NotificationItem = ({
   const isClickable = link !== '#';
 
   const content = (
-    <div
+    <motion.div
+      layout
+      animate={{ opacity: 1 }}
+      initial={{ opacity: 0.85 }}
+      transition={{ duration: 0.18 }}
       className={cn(
         'group relative flex items-start gap-4 rounded-xl border p-3 transition-all duration-200',
         !notification.read
@@ -124,13 +125,22 @@ export const NotificationItem = ({
         )}
       </div>
 
-      {!notification.read && showUnreadIndicator && (
-        <div className='bg-primary absolute top-11 right-2 h-1.5 w-1.5 rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]' />
-      )}
-    </div>
+      <AnimatePresence initial={false}>
+        {!notification.read && showUnreadIndicator && (
+          <motion.div
+            key='unread-dot'
+            initial={{ opacity: 1, scale: 1 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.2 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className='bg-primary absolute top-11 right-2 h-1.5 w-1.5 rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]'
+          />
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 
-  if (isClickable) {
+  if (isClickable && !disableNavigation) {
     return (
       <Link href={link} onClick={handleClick} className='block'>
         {content}
@@ -138,5 +148,14 @@ export const NotificationItem = ({
     );
   }
 
-  return <div onClick={handleClick}>{content}</div>;
+  return (
+    <button
+      type='button'
+      onClick={handleClick}
+      className='block w-full text-left'
+      aria-label={notification.title}
+    >
+      {content}
+    </button>
+  );
 };
